@@ -24,7 +24,7 @@ jobs:
       - name: Restore
         run: dotnet restore NeedleDrop.sln
 
-      - name: Publish self-contained single-file exe
+      - name: Publish front end (WPF) self-contained single-file exe
         run: >
           dotnet publish NeedleDrop/NeedleDrop.csproj
           -c Release
@@ -32,17 +32,35 @@ jobs:
           --self-contained true
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
-          -o publish
+          -o publish/frontend
 
-      - name: Upload build artifact
+      - name: Publish back-end API self-contained single-file exe
+        run: >
+          dotnet publish NeedleDrop.Api/NeedleDrop.Api.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/api
+
+      - name: Upload front-end build artifact
         uses: actions/upload-artifact@v4
         with:
           name: NeedleDrop-win-x64
-          path: publish/NeedleDrop.exe
+          path: publish/frontend/NeedleDrop.exe
 
-      - name: Create GitHub Release with the exe attached
+      - name: Upload API build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeedleDropApi-win-x64
+          path: publish/api/NeedleDropApi.exe
+
+      - name: Create GitHub Release with both exes attached
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: Needle Drop build ${{ github.run_number }}
-          files: publish/NeedleDrop.exe
+          files: |
+            publish/frontend/NeedleDrop.exe
+            publish/api/NeedleDropApi.exe

@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "NeedleDrop.Api": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:59956;http://localhost:59957"
+    }
+  }
+}

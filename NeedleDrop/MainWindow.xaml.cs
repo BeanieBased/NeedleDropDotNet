@@ -11,8 +11,16 @@ using System.Windows.Media.Animation;
 namespace NeedleDrop
 {
     /// <summary>
+    /// This window reproduces the Needle Drop web prototype's screens as an
+    /// interactive WPF front end, for BOTH game modes described in the brief:
+    /// "Guess the Song" (name a track from a one-second clip) and
+    /// "Streams Showdown" (pick which of two tracks has more streams).
     ///
-    /// Everything here is UI-only lol.
+    /// Everything here is UI-only per this week's assignment: no real Spotify
+    /// API call, no real Billboard data pull, no SQL leaderboard yet — those
+    /// are the "back end/DB" pieces called out as still missing. Sample data
+    /// and in-memory leaderboards stand in for now so every control has
+    /// something to react to.
     /// </summary>
     public partial class MainWindow : Window
     {
@@ -20,7 +28,7 @@ namespace NeedleDrop
         private int _round = 1;
         private const int TotalRounds = 10;
         private int _score = 0;
-        private string _guessMode = "multiple"; // multiple is song or artist
+        private string _guessMode = "multiple"; // multiple | song | artist
 
         private readonly List<(string Initials, int Score)> _songLeaderboard = new()
         {
@@ -31,7 +39,7 @@ namespace NeedleDrop
         private int _streak = 0;
         private int _matchup = 0;
 
-        // Mock ups of variables (titleA, artistA, streamsA, titleB, artistB, streamsB)
+        // Mock matchups: (titleA, artistA, streamsA, titleB, artistB, streamsB)
         private static readonly (string, string, int, string, string, int)[] SampleMatchups = new[]
         {
             ("Sample Track A", "Artist One", 812_000_000, "Sample Track B", "Artist Two", 640_000_000),
@@ -116,7 +124,7 @@ namespace NeedleDrop
             {
                 Process.Start(new ProcessStartInfo("https://developer.spotify.com/dashboard") { UseShellExecute = true });
             }
-            catch { /* front end only here :p*/ }
+            catch { /* no-op for now — front end only this week */ }
         }
 
         private void CopyRedirect_Click(object sender, RoutedEventArgs e)
@@ -126,7 +134,7 @@ namespace NeedleDrop
                 Clipboard.SetText("http://127.0.0.1:8080/callback");
                 CopyRedirectBtn.Content = "Copied!";
             }
-            catch { /* blehhhh fill the space */ }
+            catch { /* clipboard can fail in some sandboxes; ignore for the UI mock */ }
         }
 
         private void Connect_Click(object sender, RoutedEventArgs e)

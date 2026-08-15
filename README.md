@@ -53,12 +53,57 @@ project itself is a normal, valid WPF solution though, so:
    right-click the `NeedleDrop.exe` asset to copy its direct link.
 4. Submit that URL.
 
-## Notes for next sprint (back end)
+## Back-end API (`NeedleDrop.Api`)
+
+A minimal ASP.NET Core Web API, published the same way as the front end —
+self-contained `NeedleDropApi.exe`. Every response is mock/hard-coded data,
+per this week's assignment; there's no real Spotify, Billboard, or SQL
+connection wired up yet, and the request does **not** have to come from the
+WPF front end — curl, Postman, or a browser all work.
+
+Run it (from the published exe, or via `dotnet run --project NeedleDrop.Api`)
+and it listens on **http://localhost:5080**. Swagger UI — the easiest way to
+test and screenshot — is at **http://localhost:5080/swagger**.
+
+**Endpoints:**
+
+| Method | Route | What it returns |
+|---|---|---|
+| GET | `/api/health` | `{ status: "ok" }` — sanity check |
+| GET | `/api/songmode/track` | A mock round: a track id + 4 multiple-choice options |
+| POST | `/api/songmode/guess` | `{ trackId, guess }` → `{ correct, correctTitle, correctArtist }` |
+| GET | `/api/songmode/leaderboard` | Mock leaderboard, e.g. `JWB — 8` |
+| POST | `/api/songmode/leaderboard` | `{ initials, value }` → adds an entry, returns updated list |
+| GET | `/api/streamsmode/matchup` | Two mock tracks (stream counts withheld until guessed) |
+| POST | `/api/streamsmode/guess` | `{ matchupId, pick }` → `{ correct, streamsA, streamsB, winnerId }` |
+| GET | `/api/streamsmode/leaderboard` | Mock streak leaderboard, e.g. `JWB — 83` |
+| POST | `/api/streamsmode/leaderboard` | `{ initials, value }` → adds an entry, returns updated list |
+
+## For the "Back-end API executable" assignment
+
+1. Push this update (see below) so the workflow rebuilds — the Release will
+   now have **two** assets: `NeedleDrop.exe` (front end) and
+   `NeedleDropApi.exe` (back end). Submit the `NeedleDropApi.exe` link for
+   this assignment.
+2. To get your request/response screen capture: run `NeedleDropApi.exe`
+   (double-click it, or `.\NeedleDropApi.exe` from a terminal — a console
+   window will confirm it's listening on port 5080), then either:
+   - Open **http://localhost:5080/swagger** in a browser, expand an endpoint
+     like `GET /api/songmode/track`, click **Try it out** → **Execute**, and
+     screenshot the request + the JSON response Swagger shows underneath, or
+   - Use curl/Postman, e.g.:
+     ```
+     curl http://localhost:5080/api/songmode/track
+     curl -X POST http://localhost:5080/api/songmode/guess -H "Content-Type: application/json" -d "{\"trackId\":\"t1\",\"guess\":\"Artist One\"}"
+     ```
+     and screenshot the terminal showing both the command and the JSON that
+     comes back.
+
+## Notes for next sprint
 
 - `MainWindow.xaml.cs` has clearly marked mock spots (`Choice_Click`,
-  `LockGuess_Click`, `LoadTracklist_Click`) where real Spotify Web API calls,
-  scoring, and SQL leaderboard writes will eventually go.
-- The two game modes from your brief (song-guessing and streams-comparison)
-  aren't both built yet — this pass focused on getting the song-guessing flow
-  fully click-through-able per the assignment. Say the word and I'll add a
-  second screen set for the streams-comparison mode next.
+  `LockGuess_Click`, `LoadTracklist_Click`) where the front end will
+  eventually call this API instead of using its own local sample data.
+- `NeedleDrop.Api/Program.cs` has the same kind of markers — swap the
+  hard-coded arrays and in-memory `ConcurrentBag` leaderboards for real
+  Spotify/Billboard calls and a SQL database when that sprint comes up.
