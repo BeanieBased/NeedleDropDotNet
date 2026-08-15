@@ -1,0 +1,48 @@
+name: Build and Release Needle Drop
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore NeedleDrop.sln
+
+      - name: Publish self-contained single-file exe
+        run: >
+          dotnet publish NeedleDrop/NeedleDrop.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeedleDrop-win-x64
+          path: publish/NeedleDrop.exe
+
+      - name: Create GitHub Release with the exe attached
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Needle Drop build ${{ github.run_number }}
+          files: publish/NeedleDrop.exe
