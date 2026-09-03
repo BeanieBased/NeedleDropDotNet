@@ -1,9 +1,16 @@
 using System.Collections.Concurrent;
+using NeedleDrop.Api.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Fixed port
-builder.WebHost.UseUrls("http://localhost:5080");
+// Official .NET container images set this automatically. Outside a
+// container (plain `dotnet run` / F5 in Visual Studio) we still fix the
+// port so it's predictable to hit from curl/Postman/browser, matching the
+// README. Inside a container, bind to all interfaces on 8080 so Docker's
+// port mapping can actually reach it — localhost inside the container
+// wouldn't be reachable from outside it.
+bool inContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
+builder.WebHost.UseUrls(inContainer ? "http://+:8080" : "http://localhost:5080");
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -12,18 +19,31 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "Needle Drop API",
         Version = "v1",
-        Description = "Mock back end for Needle Drop"
-                   
+        Description = "Mock back end for Needle Drop. Every response below is hard-coded/mocked — " +
+                      "no real Spotify, Billboard, or database calls yet. That's next sprint."
     });
 });
 
 builder.Services.AddCors(options =>
 {
-    // Wide open
+    // Wide open on purpose: the front end doesn't have to be the caller for this assignment,
+    // so anything (curl, Postman, browser, the WPF app later) should be able to reach it.
     options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 });
 
 var app = builder.Build();
+
+// Creates the NeedleDropDb database/tables in SQL Server Express LocalDB the
+// first time this runs, and seeds sample rows if the tables are empty.
+try
+{
+    Db.Initialize();
+    Console.WriteLine("Database ready: (localdb)\\MSSQLLocalDB -> NeedleDropDb");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"WARNING: could not reach LocalDB ({ex.Message}). The /api/db/* endpoints will fail until this is resolved.");
+}
 
 app.UseCors();
 app.UseSwagger();
@@ -104,7 +124,8 @@ app.MapPost("/api/songmode/guess", (GuessRequest req) =>
     var track = songTracks.FirstOrDefault(t => t.Id == req.TrackId);
     if (track is null) return Results.NotFound(new { error = $"No track with id '{req.TrackId}'" });
 
-    // Mocked scoring rule: a guess "counts" as correct anyway
+    // Mocked scoring rule: a guess "counts" as correct if it case-insensitively
+    // contains the track title or artist. Real matching logic comes with the real data.
     bool correct = !string.IsNullOrWhiteSpace(req.Guess) &&
         (track.Title.Contains(req.Guess, StringComparison.OrdinalIgnoreCase) ||
          track.Artist.Contains(req.Guess, StringComparison.OrdinalIgnoreCase));
@@ -175,6 +196,37 @@ app.MapPost("/api/streamsmode/leaderboard", (LeaderboardSubmission req) =>
     return Results.Ok(streamsLeaderboard.OrderByDescending(e => e.Value).Take(10));
 })
 .WithName("PostStreamsLeaderboard");
+
+// ================= Database-backed endpoints (real SQL Server LocalDB) =================
+// Everything under /api/db/* actually hits NeedleDropDb via ADO.NET — this is
+// the part that satisfies "the database should be able to receive/handle
+// queries" for this week's assignment. GET /api/db/tracks is a straight
+// SELECT * FROM Tracks and is the one to screen-capture for submission.
+
+app.MapGet("/api/db/tracks", () => Results.Ok(Db.GetAllTracks()))
+   .WithName("GetAllTracksFromDb");
+
+app.MapGet("/api/db/songleaderboard", () => Results.Ok(Db.GetSongLeaderboard()))
+   .WithName("GetSongLeaderboardFromDb");
+
+app.MapPost("/api/db/songleaderboard", (LeaderboardSubmission req) =>
+{
+    var initials = string.IsNullOrWhiteSpace(req.Initials) ? "YOU" : req.Initials.ToUpperInvariant();
+    Db.InsertSongScore(initials, req.Value);
+    return Results.Ok(Db.GetSongLeaderboard());
+})
+.WithName("PostSongLeaderboardToDb");
+
+app.MapGet("/api/db/streamsleaderboard", () => Results.Ok(Db.GetStreamsLeaderboard()))
+   .WithName("GetStreamsLeaderboardFromDb");
+
+app.MapPost("/api/db/streamsleaderboard", (LeaderboardSubmission req) =>
+{
+    var initials = string.IsNullOrWhiteSpace(req.Initials) ? "YOU" : req.Initials.ToUpperInvariant();
+    Db.InsertStreamsScore(initials, req.Value);
+    return Results.Ok(Db.GetStreamsLeaderboard());
+})
+.WithName("PostStreamsLeaderboardToDb");
 
 Console.WriteLine();
 Console.WriteLine("Needle Drop API (mock) running at http://localhost:5080");

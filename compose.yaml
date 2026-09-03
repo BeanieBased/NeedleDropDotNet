@@ -1,0 +1,50 @@
+services:
+
+  database:
+    build:
+      context: .
+      dockerfile: database/Dockerfile
+    container_name: needledrop-database
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Strong!P@ssw0rd"
+    ports:
+      - "1433:1433"
+    volumes:
+      - db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: needledrop-backend
+    environment:
+      DB_HOST: database
+      DB_USER: sa
+      DB_PASSWORD: "Strong!P@ssw0rd"
+    ports:
+      - "8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: needledrop-frontend
+    # WPF renders a native Windows window — it can't display inside any
+    # container. This service builds NeedleDrop.exe as an artifact you
+    # copy out (see README); it isn't meant to be interacted with while
+    # running, so it just idles after the build completes.
+    depends_on:
+      - backend
+
+volumes:
+  db-data:

@@ -26,7 +26,7 @@ jobs:
 
       - name: Publish front end (WPF) self-contained single-file exe
         run: >
-          dotnet publish NeedleDrop/NeedleDrop.csproj
+          dotnet publish frontend/NeedleDrop.csproj
           -c Release
           -r win-x64
           --self-contained true
@@ -36,7 +36,7 @@ jobs:
 
       - name: Publish back-end API self-contained single-file exe
         run: >
-          dotnet publish NeedleDrop.Api/NeedleDrop.Api.csproj
+          dotnet publish backend/NeedleDrop.Api.csproj
           -c Release
           -r win-x64
           --self-contained true
