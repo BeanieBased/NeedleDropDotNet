@@ -151,6 +151,7 @@ app.MapPost("/api/songmode/leaderboard", (LeaderboardSubmission req) =>
 .WithName("PostSongLeaderboard");
 
 // ================= Streams Showdown mode =================
+//hi
 
 app.MapGet("/api/streamsmode/matchup", () =>
 {
