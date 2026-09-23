@@ -68,5 +68,17 @@ jobs:
             # here: this SSH session is non-interactive, so a sudo prompt
             # for a password just fails immediately ("sudo: a password is
             # required") — group membership is the permanent, correct fix.
+            # DB_EXTERNAL_PORT: on a shared server, every student's database
+            # container tries to bind the SQL Server default port (1433) on
+            # the host, and only one of them can win it — this is what
+            # caused "Bind for 0.0.0.0:1433 failed: port is already
+            # allocated". Giving this container its own distinct host port
+            # (set via the DEPLOY_DB_PORT secret) avoids that collision.
+            # The backend itself never uses this — it always reaches the
+            # database over Docker's internal network by service name
+            # ("database"), regardless of what this is set to. This only
+            # matters if you want to point an external tool (SSMS, Azure
+            # Data Studio) at the database directly from off-server.
             BACKEND_EXTERNAL_PORT=${{ secrets.DEPLOY_EXTERNAL_PORT }} \
+            DB_EXTERNAL_PORT=${{ secrets.DEPLOY_DB_PORT }} \
               docker compose up -d --build backend database
