@@ -58,5 +58,26 @@ jobs:
             # app the assignment's "URL for your up and running
             # application" deliverable points at — http://<server>:<port>/swagger
             # once this finishes.
-            BACKEND_EXTERNAL_PORT=${{ secrets.DEPLOY_EXTERNAL_PORT }} \
+            #
+            # "sudo" here: a plain non-root user on a shared class Docker
+            # server usually can't talk to /var/run/docker.sock directly
+            # (only root or members of the "docker" group can) — this
+            # showed up as "permission denied while trying to connect to
+            # the docker API at unix:///var/run/docker.sock". Many class
+            # servers grant students passwordless sudo specifically for
+            # Docker commands, so trying that first. If this step still
+            # fails with something like "sudo: a password is required" or
+            # "jcollazo is not in the sudoers file", sudo isn't set up that
+            # way here either, and the real fix has to happen server-side —
+            # ask whoever admins the server to add this account to the
+            # "docker" group (sudo usermod -aG docker <username>, then a
+            # fresh login), which is the standard, permanent way to grant
+            # Docker access without sudo at all.
+            # Note: "sudo VAR=value command" does NOT work the way it does
+            # in a plain shell — sudo doesn't pass through an inline
+            # assignment like that, it just tries (and fails) to run a
+            # program literally named "VAR=value". "sudo env VAR=value
+            # command" is the correct way to run a command as root with an
+            # environment variable set.
+            sudo env BACKEND_EXTERNAL_PORT=${{ secrets.DEPLOY_EXTERNAL_PORT }} \
               docker compose up -d --build backend database
