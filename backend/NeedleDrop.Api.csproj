@@ -6,16 +6,58 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>NeedleDropApi</AssemblyName>
     <RootNamespace>NeedleDrop.Api</RootNamespace>
-    <InvariantGlobalization>true</InvariantGlobalization>
-    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
-    <SelfContained>true</SelfContained>
-    <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
+
+  <!--
+    InvariantGlobalization used to be set to true here (a size-trimming
+    .NET setting that strips out ICU/culture data from the published app).
+    Microsoft.Data.SqlClient — the real SQL Server driver this project uses
+    for the leaderboard endpoints — requires full globalization support to
+    even open a connection, and throws exactly this at runtime when it's
+    missing:
+
+      System.NotSupportedException: Globalization Invariant Mode is not
+      supported.
+        at Microsoft.Data.SqlClient.SqlConnection.TryOpen(...)
+
+    This is a well-documented, real incompatibility between
+    InvariantGlobalization and Microsoft.Data.SqlClient, not anything
+    specific to one machine — every /api/db/* call (i.e. both leaderboards)
+    would 500 with this exact exception with the flag left on. Removing it
+    (equivalent to the default, InvariantGlobalization=false) is the fix.
+  -->
+
+
+
+  <!--
+    Same reasoning as frontend/NeedleDrop.csproj: SelfContained/PublishSingleFile/
+    RuntimeIdentifiers are deliberately left out of the unconditional PropertyGroup
+    above, since NeedleDrop.Api.Tests references this project and an unconditional
+    SelfContained=true here causes the same "Duplicate AssemblyVersionAttribute"
+    build errors. Publish still works the same way as always (self contained
+    true, single file true, native libs for self extract true):
+
+      dotnet publish backend/NeedleDrop.Api.csproj -c Release -r win-x64
+        -p:SelfContained=true -p:PublishSingleFile=true
+        -p:IncludeNativeLibrariesForSelfExtract=true -o publish/api
+
+    (again, exactly what .github/workflows/ci.yml's publish job already does).
+  -->
 
   <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      NeedleDrop.Api.Tests lives in a subfolder of this project. Without
+      these excludes, this project's default recursive **/*.cs glob also
+      pulls in NeedleDrop.Api.Tests' xUnit test files, which this project
+      doesn't reference xUnit or Microsoft.AspNetCore.Mvc.Testing for.
+    -->
+    <Compile Remove="NeedleDrop.Api.Tests\**\*.cs" />
+    <None Remove="NeedleDrop.Api.Tests\**" />
   </ItemGroup>
 
 </Project>

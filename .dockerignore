@@ -1,0 +1,23 @@
+# .NET build output — each Dockerfile builds fresh inside its own stage,
+# so local bin/obj folders should never be copied into an image.
+**/bin/
+**/obj/
+
+# Local tooling / IDE junk
+**/.vs/
+**/.vscode/
+*.user
+
+# Test projects aren't needed inside the app images — dotnet test runs in CI, not in a container
+**/NeedleDrop.Tests/
+**/NeedleDrop.Api.Tests/
+
+# Git and CI metadata not needed inside any image
+.git/
+.github/
+
+# Misc
+publish/
+*.md
+.gitignore
+.gitattributes

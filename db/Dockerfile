@@ -8,8 +8,8 @@ FROM mcr.microsoft.com/mssql/server:2022-latest
 ENV ACCEPT_EULA=Y
 
 USER root
-COPY database/initialization-scripts/ /usr/src/app/initialization-scripts/
-COPY database/entrypoint.sh /usr/src/app/entrypoint.sh
+COPY db/init.sql /usr/src/app/init-scripts/init.sql
+COPY db/entrypoint.sh /usr/src/app/entrypoint.sh
 RUN chmod +x /usr/src/app/entrypoint.sh
 USER mssql
 

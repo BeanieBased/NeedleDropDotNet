@@ -1,0 +1,62 @@
+name: Deploy
+
+# Fires automatically once the "Build and Test" workflow (ci.yml) finishes
+# successfully on main — never on a failed or in-progress build, and never
+# directly on push (that's what Build and Test itself reacts to). Also
+# runnable by hand from the Actions tab (workflow_dispatch) for a manual
+# redeploy without needing a new commit — handy for demoing this assignment.
+on:
+  workflow_run:
+    workflows: ["Build and Test"]
+    types: [completed]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Only proceed on an actual successful Build and Test run. For a manual
+    # workflow_dispatch run there's no workflow_run event object at all, so
+    # this only short-circuits the automatic trigger path.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy backend + database to the class server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USERNAME }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          # If the class server uses an SSH key instead of a password,
+          # delete the "password:" line above and uncomment this one
+          # (add a DEPLOY_SSH_KEY secret containing the private key's full
+          # contents instead of DEPLOY_PASSWORD):
+          # key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
+          script: |
+            set -e
+            REPO_DIR=~/needledrop
+
+            # First deploy ever on this server: clone. Every deploy after
+            # that: just fetch+reset to whatever just passed Build and Test,
+            # so the server always ends up running exactly what main has,
+            # not whatever happened to be there before.
+            if [ -d "$REPO_DIR/.git" ]; then
+              cd "$REPO_DIR"
+              git fetch origin main
+              git reset --hard origin/main
+            else
+              git clone https://github.com/${{ github.repository }}.git "$REPO_DIR"
+              cd "$REPO_DIR"
+            fi
+
+            # Only the backend + database services are deployed here — the
+            # frontend is a WPF desktop app (frontend/Dockerfile only
+            # builds it as a downloadable .exe, it can't run headless on a
+            # Linux server; see that Dockerfile's own comment). This is the
+            # app the assignment's "URL for your up and running
+            # application" deliverable points at — http://<server>:<port>/swagger
+            # once this finishes.
+            BACKEND_EXTERNAL_PORT=${{ secrets.DEPLOY_EXTERNAL_PORT }} \
+              docker compose up -d --build backend database

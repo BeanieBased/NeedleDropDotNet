@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using NeedleDrop.Api;
 using NeedleDrop.Api.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -126,9 +127,7 @@ app.MapPost("/api/songmode/guess", (GuessRequest req) =>
 
     // Mocked scoring rule: a guess "counts" as correct if it case-insensitively
     // contains the track title or artist. Real matching logic comes with the real data.
-    bool correct = !string.IsNullOrWhiteSpace(req.Guess) &&
-        (track.Title.Contains(req.Guess, StringComparison.OrdinalIgnoreCase) ||
-         track.Artist.Contains(req.Guess, StringComparison.OrdinalIgnoreCase));
+    bool correct = GuessEvaluator.IsCorrectGuess(track.Title, track.Artist, req.Guess);
 
     return Results.Ok(new
     {
@@ -145,7 +144,7 @@ app.MapGet("/api/songmode/leaderboard", () =>
 
 app.MapPost("/api/songmode/leaderboard", (LeaderboardSubmission req) =>
 {
-    var initials = string.IsNullOrWhiteSpace(req.Initials) ? "YOU" : req.Initials.ToUpperInvariant();
+    var initials = GuessEvaluator.NormalizeInitials(req.Initials);
     songLeaderboard.Add(new LeaderboardEntry(initials, req.Value));
     return Results.Ok(songLeaderboard.OrderByDescending(e => e.Value).Take(10));
 })
@@ -172,7 +171,7 @@ app.MapPost("/api/streamsmode/guess", (StreamsGuessRequest req) =>
     if (m is null) return Results.NotFound(new { error = $"No matchup with id '{req.MatchupId}'" });
 
     bool pickedA = string.Equals(req.Pick, m.TrackA.Id, StringComparison.OrdinalIgnoreCase);
-    bool aWon = m.StreamsA >= m.StreamsB;
+    bool aWon = GuessEvaluator.DoesTrackAWin(m.StreamsA, m.StreamsB);
     bool correct = pickedA ? aWon : !aWon;
 
     return Results.Ok(new
@@ -191,7 +190,7 @@ app.MapGet("/api/streamsmode/leaderboard", () =>
 
 app.MapPost("/api/streamsmode/leaderboard", (LeaderboardSubmission req) =>
 {
-    var initials = string.IsNullOrWhiteSpace(req.Initials) ? "YOU" : req.Initials.ToUpperInvariant();
+    var initials = GuessEvaluator.NormalizeInitials(req.Initials);
     streamsLeaderboard.Add(new LeaderboardEntry(initials, req.Value));
     return Results.Ok(streamsLeaderboard.OrderByDescending(e => e.Value).Take(10));
 })
@@ -211,7 +210,7 @@ app.MapGet("/api/db/songleaderboard", () => Results.Ok(Db.GetSongLeaderboard()))
 
 app.MapPost("/api/db/songleaderboard", (LeaderboardSubmission req) =>
 {
-    var initials = string.IsNullOrWhiteSpace(req.Initials) ? "YOU" : req.Initials.ToUpperInvariant();
+    var initials = GuessEvaluator.NormalizeInitials(req.Initials);
     Db.InsertSongScore(initials, req.Value);
     return Results.Ok(Db.GetSongLeaderboard());
 })
@@ -222,7 +221,7 @@ app.MapGet("/api/db/streamsleaderboard", () => Results.Ok(Db.GetStreamsLeaderboa
 
 app.MapPost("/api/db/streamsleaderboard", (LeaderboardSubmission req) =>
 {
-    var initials = string.IsNullOrWhiteSpace(req.Initials) ? "YOU" : req.Initials.ToUpperInvariant();
+    var initials = GuessEvaluator.NormalizeInitials(req.Initials);
     Db.InsertStreamsScore(initials, req.Value);
     return Results.Ok(Db.GetStreamsLeaderboard());
 })
@@ -243,3 +242,7 @@ record LeaderboardEntry(string Initials, int Value);
 record GuessRequest(string TrackId, string Guess);
 record StreamsGuessRequest(string MatchupId, string Pick);
 record LeaderboardSubmission(string Initials, int Value);
+
+// Exposes the implicit top-level Program class publicly so the test project
+// can spin this app up in-memory via WebApplicationFactory<Program>.
+public partial class Program { }

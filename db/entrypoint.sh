@@ -25,7 +25,7 @@ done
 
 MARKER_FILE=/var/opt/mssql/data/.needledrop-initialized
 if [ ! -f "$MARKER_FILE" ]; then
-  for script in /usr/src/app/initialization-scripts/*.sql; do
+  for script in /usr/src/app/init-scripts/*.sql; do
     echo "Running init script: $script"
     "$SQLCMD" -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -i "$script"
   done

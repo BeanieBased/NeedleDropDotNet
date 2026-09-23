@@ -3,11 +3,11 @@ services:
   database:
     build:
       context: .
-      dockerfile: database/Dockerfile
+      dockerfile: db/Dockerfile
     container_name: needledrop-database
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "Strong!P@ssw0rd"
+      MSSQL_SA_PASSWORD: "YourStrong!Passw0rd"
     ports:
       - "1433:1433"
     volumes:
@@ -27,7 +27,7 @@ services:
     environment:
       DB_HOST: database
       DB_USER: sa
-      DB_PASSWORD: "Strong!P@ssw0rd"
+      DB_PASSWORD: "YourStrong!Passw0rd"
     ports:
       - "8080:8080"
     depends_on:

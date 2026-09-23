@@ -9,10 +9,54 @@
     <AssemblyName>NeedleDrop</AssemblyName>
     <RootNamespace>NeedleDrop</RootNamespace>
     <Platforms>AnyCPU;x64</Platforms>
-    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
-    <SelfContained>true</SelfContained>
-    <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
+
+  <!--
+    Self-contained single-file publish settings (SelfContained, PublishSingleFile,
+    IncludeNativeLibrariesForSelfExtract, and a RuntimeIdentifier) are intentionally
+    NOT set here. Setting SelfContained=true unconditionally in a project that's
+    also referenced by a test project (NeedleDrop.Tests -> ProjectReference ->
+    this project) is a known cause of "Duplicate AssemblyVersionAttribute /
+    TargetFrameworkAttribute" build errors and stray builds under an extra
+    obj\...\win-x64\ subfolder, because it forces an implicit runtime identifier
+    onto every ordinary build, not just publish.
+
+    Publishing a real self-contained single-file exe still works exactly as
+    before — just pass these on the command line at publish time instead
+    (self contained true, single file true, native libs for self extract true):
+
+      dotnet publish frontend/NeedleDrop.csproj -c Release -r win-x64
+        -p:SelfContained=true -p:PublishSingleFile=true
+        -p:IncludeNativeLibrariesForSelfExtract=true -o publish/frontend
+
+    (this is exactly what .github/workflows/ci.yml's publish job already does).
+  -->
+
+  <ItemGroup>
+    <!--
+      NeedleDrop.Tests lives in a subfolder of this project (so it can
+      reference NeedleDrop.csproj with a relative path). Without these
+      excludes, this project's default recursive **/*.cs glob also pulls in
+      NeedleDrop.Tests' xUnit test files — which this project doesn't
+      reference xUnit for at all, causing "Theory/Fact/InlineData could not
+      be found" errors.
+    -->
+    <Compile Remove="NeedleDrop.Tests\**\*.cs" />
+    <None Remove="NeedleDrop.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Hosts the Spotify Web Playback SDK inside a hidden WebView2 control so
+      "drop the needle" creates a brand-new, already-active Spotify Connect
+      device instead of remote-controlling whatever device happened to be
+      open already. See Spotify/SpotifyWebPlaybackController.cs for why:
+      remote-controlling an existing device via /me/player/play proved
+      unreliable (Spotify can 2xx the request while queuing nothing if the
+      device wasn't fully "active" yet), and the Web Playback SDK sidesteps
+      that whole class of bug by owning the device itself.
+    -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
 
 </Project>

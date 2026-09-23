@@ -1,0 +1,121 @@
+name: CI
+
+# Build action triggered on merge to main. workflow_dispatch is included so
+# it can also be run by hand from the Actions tab for a quick recheck.
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+
+  # ================= Build =================
+  # Compiles the whole solution. If this fails, nothing downstream runs.
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore NeedleDrop.sln
+
+      - name: Build solution
+        run: dotnet build NeedleDrop.sln --configuration Release --no-restore
+
+  # ================= Test =================
+  # Runs only after "build" succeeds (see needs: below). Covers the xUnit
+  # projects under frontend/NeedleDrop.Tests and backend/NeedleDrop.Api.Tests.
+  test:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore NeedleDrop.sln
+
+      - name: Run unit + integration tests
+        run: dotnet test NeedleDrop.sln --configuration Release --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/*.trx
+
+  # ================= Publish =================
+  # Only runs once both build and test have succeeded. Produces the
+  # downloadable executables and attaches them to a GitHub Release, same as
+  # earlier weeks — now gated behind a passing test suite instead of just a
+  # successful build.
+  publish:
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore NeedleDrop.sln
+
+      - name: Publish front end (WPF) self-contained single-file exe
+        run: >
+          dotnet publish frontend/NeedleDrop.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/frontend
+
+      - name: Publish back-end API self-contained single-file exe
+        run: >
+          dotnet publish backend/NeedleDrop.Api.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/api
+
+      - name: Upload front-end build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeedleDrop-win-x64
+          path: publish/frontend/NeedleDrop.exe
+
+      - name: Upload API build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeedleDropApi-win-x64
+          path: publish/api/NeedleDropApi.exe
+
+      - name: Create GitHub Release with both exes attached
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Needle Drop build ${{ github.run_number }}
+          files: |
+            publish/frontend/NeedleDrop.exe
+            publish/api/NeedleDropApi.exe
